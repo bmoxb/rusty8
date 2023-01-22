@@ -1,7 +1,9 @@
+#![allow(clippy::needless_range_loop)]
+
 mod chip8;
 
+use macroquad::audio;
 use macroquad::prelude as quad;
-use macroquad::audio as audio;
 
 const INPUT_KEYS: [quad::KeyCode; 16] = [
     quad::KeyCode::Key1,
@@ -24,7 +26,9 @@ const INPUT_KEYS: [quad::KeyCode; 16] = [
 
 #[macroquad::main("Rusty8")]
 async fn main() {
-    let buzz = audio::load_sound("buzz.wav").await.expect("Could not load buzz sound effect.");
+    let buzz = audio::load_sound("buzz.wav")
+        .await
+        .expect("Could not load buzz sound effect.");
 
     let mut c8 = chip8::Chip8::new();
 
@@ -46,12 +50,20 @@ async fn main() {
         let play_buzz = c8.step_timers();
 
         if play_buzz {
-            audio::play_sound(buzz, audio::PlaySoundParams { looped: true, ..Default::default() });
+            audio::play_sound(
+                buzz,
+                audio::PlaySoundParams {
+                    looped: true,
+                    ..Default::default()
+                },
+            );
         } else {
             audio::stop_sound(buzz);
         }
 
-        for _ in 0..17 { c8.step(&input, &mut output); }
+        for _ in 0..17 {
+            c8.step(&input, &mut output);
+        }
 
         draw_output(&output);
 

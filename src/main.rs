@@ -1,6 +1,7 @@
 mod chip8;
 
 use macroquad::prelude as quad;
+use macroquad::audio as audio;
 
 const INPUT_KEYS: [quad::KeyCode; 16] = [
     quad::KeyCode::Key1,
@@ -23,6 +24,8 @@ const INPUT_KEYS: [quad::KeyCode; 16] = [
 
 #[macroquad::main("Rusty8")]
 async fn main() {
+    let buzz = audio::load_sound("buzz.wav").await.expect("Could not load buzz sound effect.");
+
     let mut c8 = chip8::Chip8::new();
 
     if let Some(rom_path) = std::env::args().collect::<Vec<String>>().get(1) {
@@ -40,8 +43,15 @@ async fn main() {
             input[key] = quad::is_key_down(INPUT_KEYS[key]);
         }
 
-        for i in 0..17 { c8.step(&input, &mut output); }
-        c8.step_timers();
+        let play_buzz = c8.step_timers();
+
+        if play_buzz {
+            audio::play_sound(buzz, audio::PlaySoundParams { looped: true, ..Default::default() });
+        } else {
+            audio::stop_sound(buzz);
+        }
+
+        for _ in 0..17 { c8.step(&input, &mut output); }
 
         draw_output(&output);
 

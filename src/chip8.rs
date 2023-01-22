@@ -1,6 +1,10 @@
+use rand::Rng;
+
 const RAM_SIZE: u16 = 0x1000;
 const STACK_SIZE: u8 = 16;
+
 const ROM_LOAD_ADDR: u16 = 0x200;
+
 const FONT_DATA: &[u8] = &[
     0xF0, 0x90, 0x90, 0x90, 0xF0,  // 0
     0x20, 0x60, 0x20, 0x20, 0x70,  // 1
@@ -29,6 +33,7 @@ pub struct Chip8 {
     sp: u8,       // stack pointer
     dt: u8,       // delay timer
     st: u8,       // sound timer
+    waiting_for_input: Option<u8>,  // handle wait for key press instruction, write key to VX where X is the u8 value
 }
 
 impl Chip8 {
@@ -48,23 +53,32 @@ impl Chip8 {
             sp: 0,
             dt: 0,
             st: 0,
+            waiting_for_input: None,
         }
     }
 
     pub fn load(&mut self, rom: &[u8]) {
-        for (offset, value) in rom.iter().enumerate() {
-            self.write(ROM_LOAD_ADDR + offset as u16, *value);
-        }
+        self.write_sequence(ROM_LOAD_ADDR, rom);
 
         self.pc = ROM_LOAD_ADDR as u16;
     }
 
     pub fn step(&mut self, input: &[bool; 16], output: &mut [bool; 64 * 32]) {
+        match self.waiting_for_input {
+            Some(x) => {
+                if let Some(key) = input.iter().position(|down| *down) {
+                    *self.v_mut(x) = key as u8;
+                    self.waiting_for_input = None;
+                }
+            },
+            None => return,  // do not run instructions until key is pressed
+        }
+
         let instr = self.next_instruction();
 
         match instr.opcode {
             0x00E0 => {  // CLS
-                // TODO
+                output.fill(false);
             },
             0x00EE => {  // RET
                 self.pc = self.pop();
@@ -103,7 +117,7 @@ impl Chip8 {
                 self.pc = self.v(0) as u16 + instr.nnn();
             },
             0xC => {  // RND VX, NN
-                let r = 25; // TODO: Generate random number 0..255.
+                let r = rand::thread_rng().gen_range(0..=255);
                 *self.v_mut(instr.x()) = r & instr.nn();
             },
             0xD => {  // DRW VX, VY, N
@@ -175,9 +189,9 @@ impl Chip8 {
                 *self.v_mut(instr.x()) = self.dt;
             },
             (0xF, 0x0A) => {  // LD VX, K
-                // TODO
+                self.waiting_for_input = Some(instr.x());
             },
-            (0xF, 0x16) => {  // LD DT, VX
+            (0xF, 0x15) => {  // LD DT, VX
                 self.dt = self.v(instr.x());
             },
             (0xF, 0x18) => {  // LD ST, VX
@@ -187,10 +201,16 @@ impl Chip8 {
                 self.i += self.v(instr.x()) as u16;
             },
             (0xF, 0x29) => {  // LD F, VX
-                // TODO
+                self.i = self.v(instr.x()) as u16 * 0x05;
             },
             (0xF, 0x33) => {  // LD B, VX
-                // TODO
+                let vx = self.v(instr.x());
+
+                let hundreds = vx / 100;
+                let tens = (vx - hundreds * 100) / 10;
+                let ones = (vx - hundreds * 100) - tens * 10;
+
+                self.write_sequence(self.i, &[hundreds, tens, ones]);
             },
             (0xF, 0x55) => {  // LD [I], VX
                 for index in 0..0xF {
@@ -225,6 +245,12 @@ impl Chip8 {
     fn write(&mut self, addr: u16, value: u8) {
         if addr < RAM_SIZE {
             self.mem[addr as usize] = value;
+        }
+    }
+
+    fn write_sequence(&mut self, start_addr: u16, values: &[u8]) {
+        for (offset, value) in values.iter().enumerate() {
+            self.write(start_addr + offset as u16, *value);
         }
     }
 

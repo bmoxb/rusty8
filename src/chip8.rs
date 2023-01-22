@@ -5,6 +5,9 @@ const STACK_SIZE: u8 = 16;
 
 const ROM_LOAD_ADDR: u16 = 0x200;
 
+pub const DISPLAY_WIDTH: usize = 64;
+pub const DISPLAY_HEIGHT: usize = 32;
+
 const FONT_DATA: &[u8] = &[
     0xF0, 0x90, 0x90, 0x90, 0xF0,  // 0
     0x20, 0x60, 0x20, 0x20, 0x70,  // 1
@@ -63,7 +66,7 @@ impl Chip8 {
         self.pc = ROM_LOAD_ADDR as u16;
     }
 
-    pub fn step(&mut self, input: &[bool; 16], output: &mut [bool; 64 * 32]) {
+    pub fn step(&mut self, input: &[bool; 16], output: &mut [[bool; DISPLAY_HEIGHT]; DISPLAY_WIDTH]) {
         match self.waiting_for_input {
             Some(x) => {
                 if let Some(key) = input.iter().position(|down| *down) {
@@ -78,7 +81,9 @@ impl Chip8 {
 
         match instr.opcode {
             0x00E0 => {  // CLS
-                output.fill(false);
+                for x in 0..DISPLAY_WIDTH {
+                    output[x].fill(false);
+                }
             },
             0x00EE => {  // RET
                 self.pc = self.pop();

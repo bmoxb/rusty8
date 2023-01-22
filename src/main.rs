@@ -5,6 +5,9 @@ mod chip8;
 use macroquad::audio;
 use macroquad::prelude as quad;
 
+const CYCLE_HZ: usize = 1000;
+const TIMER_REG_HZ: usize = 60;
+
 const INPUT_KEYS: [quad::KeyCode; 16] = [
     quad::KeyCode::Key1,
     quad::KeyCode::Key2,
@@ -47,21 +50,22 @@ async fn main() {
             input[key] = quad::is_key_down(INPUT_KEYS[key]);
         }
 
-        let play_buzz = c8.step_timers();
+        let mut play_buzz = false;
+        for _ in 0..(quad::get_frame_time() * TIMER_REG_HZ as f32).round() as usize {
+            play_buzz = play_buzz || c8.step_timers();
+        }
 
         if play_buzz {
-            audio::play_sound(
-                buzz,
-                audio::PlaySoundParams {
-                    looped: true,
-                    ..Default::default()
-                },
-            );
+            let params = audio::PlaySoundParams {
+                looped: true,
+                volume: 1.0,
+            };
+            audio::play_sound(buzz, params);
         } else {
             audio::stop_sound(buzz);
         }
 
-        for _ in 0..17 {
+        for _ in 0..(quad::get_frame_time() * CYCLE_HZ as f32).round() as usize {
             c8.step(&input, &mut output);
         }
 

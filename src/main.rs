@@ -31,12 +31,12 @@ const INPUT_KEYS: [quad::KeyCode; 16] = [
 async fn main() {
     let buzz = audio::load_sound("buzz.wav")
         .await
-        .expect("Could not load buzz sound effect.");
+        .expect("could not load buzz sound effect");
 
     let mut c8 = chip8::Chip8::new();
 
     if let Some(rom_path) = std::env::args().collect::<Vec<String>>().get(1) {
-        let rom = std::fs::read(rom_path).expect("Could not read input ROM file: {rom_path}");
+        let rom = std::fs::read(rom_path).expect("could not read input ROM file");
         c8.load(&rom);
     }
 

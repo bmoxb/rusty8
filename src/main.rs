@@ -2,8 +2,6 @@ mod chip8;
 
 use macroquad::prelude as quad;
 
-const CLOCK_HZ: usize = 60;
-
 const INPUT_KEYS: [quad::KeyCode; 16] = [
     quad::KeyCode::Key1,
     quad::KeyCode::Key2,
@@ -43,13 +41,7 @@ async fn main() {
             input[key] = quad::is_key_down(INPUT_KEYS[key]);
         }
 
-        time += quad::get_frame_time();
-
-        if time >= (1.0 / CLOCK_HZ as f32) {
-            time = 0.0;
-
-            c8.step(&input, &mut output);
-        }
+        for i in 0..10 { c8.step(&input, &mut output); }
 
         draw_output(&output);
 

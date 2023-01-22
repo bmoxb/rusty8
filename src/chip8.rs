@@ -67,17 +67,19 @@ impl Chip8 {
     }
 
     pub fn step(&mut self, input: &[bool; 16], output: &mut [[bool; DISPLAY_HEIGHT]; DISPLAY_WIDTH]) {
-        match self.waiting_for_input {
-            Some(x) => {
-                if let Some(key) = input.iter().position(|down| *down) {
+        if let Some(x) = self.waiting_for_input {
+            match input.iter().position(|down| *down) {
+                Some(key) => {
                     *self.v_mut(x) = key as u8;
                     self.waiting_for_input = None;
-                }
-            },
-            None => return,  // do not run instructions until key is pressed
+                },
+                None => return,
+            }
         }
 
         let instr = self.next_instruction();
+
+        println!("PC: {}, instruction: {}", self.pc, instr.opcode);
 
         match instr.opcode {
             0x00E0 => {  // CLS
@@ -126,7 +128,37 @@ impl Chip8 {
                 *self.v_mut(instr.x()) = r & instr.nn();
             },
             0xD => {  // DRW VX, VY, N
-                // TODO
+                let sprite_width = 8;
+                let sprite_height = instr.n() as usize;
+
+                let mut sprite = vec![vec![false; sprite_height]; sprite_width];
+
+                let mem_range = (self.i as usize)..(self.i as usize + instr.n() as usize);
+                for (sy, byte) in self.mem[mem_range].iter().enumerate() {
+                    for sx in 0..8 {
+                        let bit = (byte >> (7 - sx)) & 1;
+                        sprite[sx][sy] = bit != 0;
+                    }
+                }
+
+                let vx = self.v(instr.x()) as usize % DISPLAY_WIDTH;
+                let vy = self.v(instr.y()) as usize % DISPLAY_HEIGHT;
+
+                self.v[0xF] = 0;  // clear flag
+
+                for sx in 0..sprite_width {
+                    for sy in 0..sprite_height {
+                        let x = vx + sx;
+                        let y = vy + sy;
+
+                        if sprite[sx][sy] {
+                            if output[x][y] {
+                                self.v[0xF] = 1;
+                            }
+                            output[x][y] = !output[x][y];
+                        }
+                    }
+                }
             },
             _ => {},
         }
@@ -186,7 +218,7 @@ impl Chip8 {
                 }
             },
             (0xE, 0xA1) => {  // SKNP VX
-                if !input[self.v(instr.x()) as usize] {
+                if !input[self.v(instr.x()) as usize % 16] {
                     self.pc += 2;
                 }
             },

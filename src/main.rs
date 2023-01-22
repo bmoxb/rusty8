@@ -30,7 +30,6 @@ async fn main() {
         c8.load(&rom);
     }
 
-    let mut time = 0.0;
     let mut input = [false; 16];
     let mut output = [[false; chip8::DISPLAY_HEIGHT]; chip8::DISPLAY_WIDTH];
 
@@ -41,7 +40,8 @@ async fn main() {
             input[key] = quad::is_key_down(INPUT_KEYS[key]);
         }
 
-        for i in 0..10 { c8.step(&input, &mut output); }
+        for i in 0..17 { c8.step(&input, &mut output); }
+        c8.step_timers();
 
         draw_output(&output);
 

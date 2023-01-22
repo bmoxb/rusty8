@@ -66,6 +66,20 @@ impl Chip8 {
         self.pc = ROM_LOAD_ADDR as u16;
     }
 
+    pub fn step_timers(&mut self) -> bool {
+        if self.dt > 0 {
+            self.dt -= 1;
+        }
+
+        let buzz = self.st > 0;
+
+        if buzz {
+            self.st -= 1;
+        }
+
+        buzz
+    }
+
     pub fn step(&mut self, input: &[bool; 16], output: &mut [[bool; DISPLAY_HEIGHT]; DISPLAY_WIDTH]) {
         if let Some(x) = self.waiting_for_input {
             match input.iter().position(|down| *down) {
@@ -128,10 +142,9 @@ impl Chip8 {
                 *self.v_mut(instr.x()) = r & instr.nn();
             },
             0xD => {  // DRW VX, VY, N
-                let sprite_width = 8;
                 let sprite_height = instr.n() as usize;
 
-                let mut sprite = vec![vec![false; sprite_height]; sprite_width];
+                let mut sprite = vec![vec![false; sprite_height]; 8];
 
                 let mem_range = (self.i as usize)..(self.i as usize + instr.n() as usize);
                 for (sy, byte) in self.mem[mem_range].iter().enumerate() {
@@ -146,10 +159,19 @@ impl Chip8 {
 
                 self.v[0xF] = 0;  // clear flag
 
-                for sx in 0..sprite_width {
+                for sx in 0..8 {
+                    let x = vx + sx;
+
+                    if x == DISPLAY_WIDTH {
+                        break;
+                    }
+
                     for sy in 0..sprite_height {
-                        let x = vx + sx;
                         let y = vy + sy;
+
+                        if y == DISPLAY_HEIGHT {
+                            break;
+                        }
 
                         if sprite[sx][sy] {
                             if output[x][y] {
@@ -182,25 +204,24 @@ impl Chip8 {
                 *self.v_mut(instr.x()) ^= self.v(instr.y());
             },
             (0x8, 0x4) => {  // ADD VX, VY
-                let sum = self.v(instr.x()) as u16 + self.v(instr.y()) as u16;
-                *self.v_mut(0xF) = (sum > 0xFF) as u8;  // carry flag
-                *self.v_mut(instr.x()) = sum as u8;
+                let (sum, overflow) = self.v(instr.x()).overflowing_add(self.v(instr.y()));
+                *self.v_mut(0xF) = overflow as u8;
+                *self.v_mut(instr.x()) = sum;
             },
             (0x8, 0x5) => {  // SUB VX, VY
-                *self.v_mut(0xF) = (self.v(instr.x()) > self.v(instr.y())) as u8;  // borrow flag
+                *self.v_mut(0xF) = (self.v(instr.x()) >= self.v(instr.y())) as u8;
                 *self.v_mut(instr.x()) -= self.v(instr.y());
             },
             (0x8, 0x6) => {  // SHR VX
-                *self.v_mut(0xF) = self.v(instr.x()) & 0x01;  // least significant bit
+                *self.v_mut(0xF) = self.v(instr.x()) & 1;  // least significant bit
                 *self.v_mut(instr.x()) /= 2;
             },
             (0x8, 0x7) => {  // SUBN VX, VY
-                *self.v_mut(0xF) = (self.v(instr.y()) > self.v(instr.x())) as u8;  // borrow flag
-                *self.v_mut(instr.x()) = self.v(instr.y()) - self.v(instr.x())
-
+                *self.v_mut(0xF) = (self.v(instr.y()) >= self.v(instr.x())) as u8;
+                *self.v_mut(instr.x()) = self.v(instr.y()) - self.v(instr.x());
             },
             (0x8, 0xE) => {  // SHL VX
-                *self.v_mut(0xF) = self.v(instr.x()) & 0x80;  // most significant bit
+                *self.v_mut(0xF) = (self.v(instr.x()) >> 7) & 1;  // most significant bit
                 *self.v_mut(instr.x()) *= 2;
             },
             (0x9, 0x0) => {  // SNE VX, VY
@@ -213,7 +234,7 @@ impl Chip8 {
 
         match (instr.c(), instr.nn()) {
             (0xE, 0x9E) => {  // SKP VX
-                if input[self.v(instr.x()) as usize] {
+                if input[self.v(instr.x()) as usize % 16] {
                     self.pc += 2;
                 }
             },
@@ -255,8 +276,8 @@ impl Chip8 {
                 }
             },
             (0xF, 0x65) => {  // LD VX, [I]
-                for index in 0..0xF {
-                    *self.v_mut(index as u8) = self.read(self.i + index);
+                for index in 0..=instr.x() {
+                    *self.v_mut(index) = self.read(self.i + index as u16);
                 }
             },
             _ => {},

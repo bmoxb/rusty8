@@ -149,7 +149,7 @@ impl Chip8 {
             0x6 => *self.v_mut(instr.x()) = instr.nn(),
 
             // ADD VX, NN
-            0x7 => *self.v_mut(instr.x()) += instr.nn(),
+            0x7 => *self.v_mut(instr.x()) = self.v(instr.x()).wrapping_add(instr.nn()),
 
             // LD I, NNN
             0xA => self.i = instr.nnn(),
@@ -239,7 +239,7 @@ impl Chip8 {
             // SUB VX, VY
             (0x8, 0x5) => {
                 *self.v_mut(0xF) = (self.v(instr.x()) >= self.v(instr.y())) as u8;
-                *self.v_mut(instr.x()) -= self.v(instr.y());
+                *self.v_mut(instr.x()) = self.v(instr.x()).wrapping_sub(self.v(instr.y()));
             }
 
             // SHR VX
@@ -251,7 +251,7 @@ impl Chip8 {
             // SUBN VX, VY
             (0x8, 0x7) => {
                 *self.v_mut(0xF) = (self.v(instr.y()) >= self.v(instr.x())) as u8;
-                *self.v_mut(instr.x()) = self.v(instr.y()) - self.v(instr.x());
+                *self.v_mut(instr.x()) = self.v(instr.y()).wrapping_sub(self.v(instr.x()));
             }
 
             // SHL VX
@@ -298,7 +298,7 @@ impl Chip8 {
             (0xF, 0x18) => self.st = self.v(instr.x()),
 
             // ADD I, VX
-            (0xF, 0x1E) => self.i += self.v(instr.x()) as u16,
+            (0xF, 0x1E) => self.i = self.i.wrapping_add(self.v(instr.x()) as u16),
 
             // LD F, VX
             (0xF, 0x29) => self.i = self.v(instr.x()) as u16 * 5,

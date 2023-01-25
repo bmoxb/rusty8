@@ -42,14 +42,8 @@ pub struct Chip8 {
 
 impl Chip8 {
     pub fn new() -> Self {
-        let mut mem = [0; RAM_SIZE as usize];
-
-        for (addr, value) in FONT_DATA.iter().enumerate() {
-            mem[addr] = *value;
-        }
-
-        Chip8 {
-            mem,
+        let mut c8 = Chip8 {
+            mem: [0; RAM_SIZE as usize],
             stack: [0; STACK_SIZE as usize],
             pc: ROM_LOAD_ADDR,
             v: [0; 16],
@@ -58,7 +52,11 @@ impl Chip8 {
             dt: 0,
             st: 0,
             waiting_for_input: None,
-        }
+        };
+
+        c8.write_sequence(0, FONT_DATA);
+
+        c8
     }
 
     /*

@@ -31,8 +31,8 @@ pub struct Chip8 {
     mem: [u8; RAM_SIZE as usize],      // 4KB RAM
     stack: [u16; STACK_SIZE as usize], // stack (for storing return addresses)
     pc: u16,                           // program counter
-    v: [u8; 16],                       // general purposeisters
-    i: u16,                            // indexister
+    v: [u8; 16],                       // general purpose registers
+    i: u16,                            // index register
     sp: u8,                            // stack pointer
     dt: u8,                            // delay timer
     st: u8,                            // sound timer
@@ -60,6 +60,9 @@ impl Chip8 {
         }
     }
 
+    /*
+     * Load a ROM into memory and set the PC register to the start address of the loaded code.
+     */
     pub fn load(&mut self, rom: &[u8]) {
         self.write_sequence(ROM_LOAD_ADDR, rom);
 
@@ -86,7 +89,7 @@ impl Chip8 {
     }
 
     /*
-     * Run a CPU cycle (fetch instruction and execute). This method sound be called at a rate of at least 500 times per
+     * Run a CPU cycle (fetch instruction and execute). This method should be called at a rate of at least 500 times per
      * second.
      */
     pub fn step(
@@ -341,6 +344,9 @@ impl Chip8 {
         }
     }
 
+    /*
+     * Read a single 8-bit value from RAM. Will return 0 if the given address is out of bounds.
+     */
     fn read(&self, addr: u16) -> u8 {
         if addr < RAM_SIZE {
             return self.mem[addr as usize];
@@ -348,18 +354,27 @@ impl Chip8 {
         0
     }
 
+    /*
+     * Write a single 8-bit value to RAM. Will do nothing if the given address is out of bounds.
+     */
     fn write(&mut self, addr: u16, value: u8) {
         if addr < RAM_SIZE {
             self.mem[addr as usize] = value;
         }
     }
 
+    /*
+     * Write multiple values to RAM beginning from the given starting address.
+     */
     fn write_sequence(&mut self, start_addr: u16, values: &[u8]) {
         for (offset, value) in values.iter().enumerate() {
             self.write(start_addr + offset as u16, *value);
         }
     }
 
+    /*
+     * Pop a value off the stack. Will return 0 if the stack pointer is out of bounds.
+     */
     fn pop(&mut self) -> u16 {
         if self.sp == 0 {
             return 0;
@@ -371,6 +386,9 @@ impl Chip8 {
         self.stack[self.sp as usize]
     }
 
+    /*
+     * Push a value onto the stack. Will do nothing if the stack is full.
+     */
     fn push(&mut self, value: u16) {
         if self.sp < STACK_SIZE {
             self.stack[self.sp as usize] = value;

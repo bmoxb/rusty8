@@ -8,7 +8,7 @@ use macroquad::prelude as quad;
 const CYCLE_HZ: usize = 1000;
 const TIMER_REG_HZ: usize = 60;
 
-const INPUT_KEYS: [quad::KeyCode; 16] = [
+const INPUT_KEYS: [quad::KeyCode; chip8::INPUT_COUNT] = [
     quad::KeyCode::Key1,
     quad::KeyCode::Key2,
     quad::KeyCode::Key3,
@@ -40,13 +40,13 @@ async fn main() {
         c8.load(&rom);
     }
 
-    let mut input = [false; 16];
+    let mut input = [false; chip8::INPUT_COUNT];
     let mut output = [[false; chip8::DISPLAY_HEIGHT]; chip8::DISPLAY_WIDTH];
 
     loop {
         quad::clear_background(quad::BLACK);
 
-        for key in 0..16 {
+        for key in 0..chip8::INPUT_COUNT {
             input[key] = quad::is_key_down(INPUT_KEYS[key]);
         }
 

@@ -2,8 +2,9 @@ use rand::Rng;
 
 const RAM_SIZE: u16 = 0x1000;
 const STACK_SIZE: u8 = 16;
-
 const ROM_LOAD_ADDR: u16 = 0x200;
+const GENERAL_REG_COUNT: usize = 16;
+pub const INPUT_COUNT: usize = 16;
 
 pub const DISPLAY_WIDTH: usize = 64;
 pub const DISPLAY_HEIGHT: usize = 32;
@@ -31,7 +32,7 @@ pub struct Chip8 {
     mem: [u8; RAM_SIZE as usize],      // 4KB RAM
     stack: [u16; STACK_SIZE as usize], // stack (for storing return addresses)
     pc: u16,                           // program counter
-    v: [u8; 16],                       // general purpose registers
+    v: [u8; GENERAL_REG_COUNT],        // general purpose registers
     i: u16,                            // index register
     sp: u8,                            // stack pointer
     dt: u8,                            // delay timer
@@ -94,7 +95,7 @@ impl Chip8 {
      */
     pub fn step(
         &mut self,
-        input: &[bool; 16],
+        input: &[bool; INPUT_COUNT],
         output: &mut [[bool; DISPLAY_HEIGHT]; DISPLAY_WIDTH],
     ) {
         if let Some(x) = self.waiting_for_input {
@@ -397,10 +398,16 @@ impl Chip8 {
     }
 
     fn v(&self, index: u8) -> u8 {
+        if index as usize >= GENERAL_REG_COUNT {
+            panic!("invalid register V{:X}", index);
+        }
         self.v[index as usize]
     }
 
     fn v_mut(&mut self, index: u8) -> &mut u8 {
+        if index as usize >= GENERAL_REG_COUNT {
+            panic!("invalid register V{:X}", index);
+        }
         &mut self.v[index as usize]
     }
 }

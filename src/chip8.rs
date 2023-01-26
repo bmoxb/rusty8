@@ -37,7 +37,7 @@ pub struct Chip8 {
     sp: u8,                            // stack pointer
     dt: u8,                            // delay timer
     st: u8,                            // sound timer
-    waiting_for_input: Option<u8>, // wait for key press instruction - write key code to VX where X is the u8 value
+    waiting_for_input: Option<usize>, // wait for key press instruction - write key code to VX where X is the usize value
 }
 
 impl Chip8 {
@@ -99,7 +99,7 @@ impl Chip8 {
         if let Some(x) = self.waiting_for_input {
             match input.iter().position(|down| *down) {
                 Some(key) => {
-                    *self.v_mut(x) = key as u8;
+                    self.v[x] = key as u8;
                     self.waiting_for_input = None;
                 }
                 None => return,
@@ -133,34 +133,34 @@ impl Chip8 {
 
             // SE VX, NN
             0x3 => {
-                if self.v(instr.x()) == instr.nn() {
+                if self.v[instr.x()] == instr.nn() {
                     self.pc += 2;
                 }
             }
 
             // SNE VX, NN
             0x4 => {
-                if self.v(instr.x()) != instr.nn() {
+                if self.v[instr.x()] != instr.nn() {
                     self.pc += 2;
                 }
             }
 
             // LD VX, NN
-            0x6 => *self.v_mut(instr.x()) = instr.nn(),
+            0x6 => self.v[instr.x()] = instr.nn(),
 
             // ADD VX, NN
-            0x7 => *self.v_mut(instr.x()) = self.v(instr.x()).wrapping_add(instr.nn()),
+            0x7 => self.v[instr.x()] = self.v[instr.x()].wrapping_add(instr.nn()),
 
             // LD I, NNN
             0xA => self.i = instr.nnn(),
 
             // JMP V0, NNN
-            0xB => self.pc = self.v(0) as u16 + instr.nnn(),
+            0xB => self.pc = self.v[0] as u16 + instr.nnn(),
 
             // RND VX, NN
             0xC => {
                 let r = rand::thread_rng().gen_range(0..=255);
-                *self.v_mut(instr.x()) = r & instr.nn();
+                self.v[instr.x()] = r & instr.nn();
             }
 
             // DRW VX, VY, N
@@ -177,8 +177,8 @@ impl Chip8 {
                     }
                 }
 
-                let vx = self.v(instr.x()) as usize % DISPLAY_WIDTH;
-                let vy = self.v(instr.y()) as usize % DISPLAY_HEIGHT;
+                let vx = self.v[instr.x()] as usize % DISPLAY_WIDTH;
+                let vy = self.v[instr.y()] as usize % DISPLAY_HEIGHT;
 
                 self.v[0xF] = 0; // clear flag
 
@@ -212,57 +212,57 @@ impl Chip8 {
         match (instr.c(), instr.n()) {
             // SE VX, VY
             (0x5, 0x0) => {
-                if self.v(instr.x()) == self.v(instr.y()) {
+                if self.v[instr.x()] == self.v[instr.y()] {
                     self.pc += 2;
                 }
             }
 
             // LD VX, VY
-            (0x8, 0x0) => *self.v_mut(instr.x()) = self.v(instr.y()),
+            (0x8, 0x0) => self.v[instr.x()] = self.v[instr.y()],
 
             // OR VX, VY
-            (0x8, 0x1) => *self.v_mut(instr.x()) |= self.v(instr.y()),
+            (0x8, 0x1) => self.v[instr.x()] |= self.v[instr.y()],
 
             // AND VX, VY
-            (0x8, 0x2) => *self.v_mut(instr.x()) &= self.v(instr.y()),
+            (0x8, 0x2) => self.v[instr.x()] &= self.v[instr.y()],
 
             // XOR VX, VY
-            (0x8, 0x3) => *self.v_mut(instr.x()) ^= self.v(instr.y()),
+            (0x8, 0x3) => self.v[instr.x()] ^= self.v[instr.y()],
 
             // ADD VX, VY
             (0x8, 0x4) => {
-                let (sum, overflow) = self.v(instr.x()).overflowing_add(self.v(instr.y()));
-                *self.v_mut(0xF) = overflow as u8;
-                *self.v_mut(instr.x()) = sum;
+                let (sum, overflow) = self.v[instr.x()].overflowing_add(self.v[instr.y()]);
+                self.v[0xF] = overflow as u8;
+                self.v[instr.x()] = sum;
             }
 
             // SUB VX, VY
             (0x8, 0x5) => {
-                *self.v_mut(0xF) = (self.v(instr.x()) >= self.v(instr.y())) as u8;
-                *self.v_mut(instr.x()) = self.v(instr.x()).wrapping_sub(self.v(instr.y()));
+                self.v[0xF] = (self.v[instr.x()] >= self.v[instr.y()]) as u8;
+                self.v[instr.x()] = self.v[instr.x()].wrapping_sub(self.v[instr.y()]);
             }
 
             // SHR VX
             (0x8, 0x6) => {
-                *self.v_mut(0xF) = self.v(instr.x()) & 1; // least significant bit
-                *self.v_mut(instr.x()) /= 2;
+                self.v[0xF] = self.v[instr.x()] & 1; // least significant bit
+                self.v[instr.x()] /= 2;
             }
 
             // SUBN VX, VY
             (0x8, 0x7) => {
-                *self.v_mut(0xF) = (self.v(instr.y()) >= self.v(instr.x())) as u8;
-                *self.v_mut(instr.x()) = self.v(instr.y()).wrapping_sub(self.v(instr.x()));
+                self.v[0xF] = (self.v[instr.y()] >= self.v[instr.x()]) as u8;
+                self.v[instr.x()] = self.v[instr.y()].wrapping_sub(self.v[instr.x()]);
             }
 
             // SHL VX
             (0x8, 0xE) => {
-                *self.v_mut(0xF) = (self.v(instr.x()) >> 7) & 1; // most significant bit
-                *self.v_mut(instr.x()) *= 2;
+                self.v[0xF] = (self.v[instr.x()] >> 7) & 1; // most significant bit
+                self.v[instr.x()] *= 2;
             }
 
             // SNE VX, VY
             (0x9, 0x0) => {
-                if self.v(instr.x()) != self.v(instr.y()) {
+                if self.v[instr.x()] != self.v[instr.y()] {
                     self.pc += 2;
                 }
             }
@@ -273,39 +273,39 @@ impl Chip8 {
         match (instr.c(), instr.nn()) {
             // SKP VX
             (0xE, 0x9E) => {
-                if input[self.v(instr.x()) as usize] {
+                if input[self.v[instr.x()] as usize] {
                     self.pc += 2;
                 }
             }
 
             // SKNP VX
             (0xE, 0xA1) => {
-                if !input[self.v(instr.x()) as usize] {
+                if !input[self.v[instr.x()] as usize] {
                     self.pc += 2;
                 }
             }
 
             // LD VX, DT
-            (0xF, 0x07) => *self.v_mut(instr.x()) = self.dt,
+            (0xF, 0x07) => self.v[instr.x()] = self.dt,
 
             // LD VX, K
             (0xF, 0x0A) => self.waiting_for_input = Some(instr.x()),
 
             // LD DT, VX
-            (0xF, 0x15) => self.dt = self.v(instr.x()),
+            (0xF, 0x15) => self.dt = self.v[instr.x()],
 
             // LD ST, VX
-            (0xF, 0x18) => self.st = self.v(instr.x()),
+            (0xF, 0x18) => self.st = self.v[instr.x()],
 
             // ADD I, VX
-            (0xF, 0x1E) => self.i = self.i.wrapping_add(self.v(instr.x()) as u16),
+            (0xF, 0x1E) => self.i = self.i.wrapping_add(self.v[instr.x()] as u16),
 
             // LD F, VX
-            (0xF, 0x29) => self.i = self.v(instr.x()) as u16 * 5,
+            (0xF, 0x29) => self.i = self.v[instr.x()] as u16 * 5,
 
             // LD B, VX
             (0xF, 0x33) => {
-                let vx = self.v(instr.x());
+                let vx = self.v[instr.x()];
 
                 let hundreds = vx / 100;
                 let tens = (vx - hundreds * 100) / 10;
@@ -317,14 +317,14 @@ impl Chip8 {
             // LD [I], VX
             (0xF, 0x55) => {
                 for index in 0..0xF {
-                    self.write(self.i + index, self.v(index as u8));
+                    self.write(self.i + index as u16, self.v[index]);
                 }
             }
 
             // LD VX, [I]
             (0xF, 0x65) => {
                 for index in 0..=instr.x() {
-                    *self.v_mut(index) = self.read(self.i + index as u16);
+                    self.v[index] = self.read(self.i + index as u16);
                 }
             }
 
@@ -394,20 +394,6 @@ impl Chip8 {
             self.sp += 1;
         }
     }
-
-    fn v(&self, index: u8) -> u8 {
-        if index as usize >= GENERAL_REG_COUNT {
-            panic!("invalid register V{:X}", index);
-        }
-        self.v[index as usize]
-    }
-
-    fn v_mut(&mut self, index: u8) -> &mut u8 {
-        if index as usize >= GENERAL_REG_COUNT {
-            panic!("invalid register V{:X}", index);
-        }
-        &mut self.v[index as usize]
-    }
 }
 
 struct Instruction {
@@ -419,12 +405,12 @@ impl Instruction {
         ((self.opcode >> 12) & 0xF) as u8
     }
 
-    fn x(&self) -> u8 {
-        ((self.opcode >> 8) & 0xF) as u8
+    fn x(&self) -> usize {
+        ((self.opcode >> 8) & 0xF) as usize
     }
 
-    fn y(&self) -> u8 {
-        ((self.opcode >> 4) & 0xF) as u8
+    fn y(&self) -> usize {
+        ((self.opcode >> 4) & 0xF) as usize
     }
 
     fn n(&self) -> u8 {

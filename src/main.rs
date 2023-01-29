@@ -27,6 +27,9 @@ const INPUT_KEYS: [quad::KeyCode; chip8::INPUT_COUNT] = [
     quad::KeyCode::V,
 ];
 
+const FOREGROUND_COLOR: quad::Color = quad::RED;
+const BACKGROUND_COLOR: quad::Color = quad::BLACK;
+
 #[macroquad::main("Rusty8")]
 async fn main() {
     let buzz = audio::load_sound("buzz.wav")
@@ -44,7 +47,7 @@ async fn main() {
     let mut output = [[false; chip8::DISPLAY_HEIGHT]; chip8::DISPLAY_WIDTH];
 
     loop {
-        quad::clear_background(quad::BLACK);
+        quad::clear_background(BACKGROUND_COLOR);
 
         for key in 0..chip8::INPUT_COUNT {
             input[key] = quad::is_key_down(INPUT_KEYS[key]);
@@ -84,7 +87,7 @@ fn draw_output(output: &[[bool; chip8::DISPLAY_HEIGHT]; chip8::DISPLAY_WIDTH]) {
             if output[x][y] {
                 let draw_x = x as f32 * pixel_width;
                 let draw_y = y as f32 * pixel_height;
-                quad::draw_rectangle(draw_x, draw_y, pixel_width, pixel_height, quad::RED);
+                quad::draw_rectangle(draw_x, draw_y, pixel_width, pixel_height, FOREGROUND_COLOR);
             }
         }
     }

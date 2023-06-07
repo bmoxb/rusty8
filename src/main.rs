@@ -2,40 +2,39 @@
 
 mod chip8;
 
-use macroquad::audio;
-use macroquad::prelude as quad;
+use std::time::Instant;
+
+use pixels::{Pixels, SurfaceTexture};
+use winit::event::{ElementState, Event, KeyboardInput, VirtualKeyCode, WindowEvent};
+use winit::event_loop::{ControlFlow, EventLoop};
+use winit::window::WindowBuilder;
 
 const CYCLE_HZ: usize = 1000;
 const TIMER_REG_HZ: usize = 60;
 
-const INPUT_KEYS: [quad::KeyCode; chip8::INPUT_COUNT] = [
-    quad::KeyCode::Key1,
-    quad::KeyCode::Key2,
-    quad::KeyCode::Key3,
-    quad::KeyCode::Key4,
-    quad::KeyCode::Q,
-    quad::KeyCode::W,
-    quad::KeyCode::E,
-    quad::KeyCode::R,
-    quad::KeyCode::A,
-    quad::KeyCode::S,
-    quad::KeyCode::D,
-    quad::KeyCode::F,
-    quad::KeyCode::Z,
-    quad::KeyCode::X,
-    quad::KeyCode::C,
-    quad::KeyCode::V,
+const INPUT_KEYS: [VirtualKeyCode; chip8::INPUT_COUNT] = [
+    VirtualKeyCode::Key1,
+    VirtualKeyCode::Key2,
+    VirtualKeyCode::Key3,
+    VirtualKeyCode::Key4,
+    VirtualKeyCode::Q,
+    VirtualKeyCode::W,
+    VirtualKeyCode::E,
+    VirtualKeyCode::R,
+    VirtualKeyCode::A,
+    VirtualKeyCode::S,
+    VirtualKeyCode::D,
+    VirtualKeyCode::F,
+    VirtualKeyCode::Z,
+    VirtualKeyCode::X,
+    VirtualKeyCode::C,
+    VirtualKeyCode::V,
 ];
 
-const FOREGROUND_COLOR: quad::Color = quad::RED;
-const BACKGROUND_COLOR: quad::Color = quad::BLACK;
+const FOREGROUND_COLOR: [u8; 4] = [230, 40, 55, 255];
+const BACKGROUND_COLOR: [u8; 4] = [0, 0, 0, 255];
 
-#[macroquad::main("Rusty8")]
-async fn main() {
-    let buzz = audio::load_sound("buzz.wav")
-        .await
-        .expect("could not load buzz sound effect");
-
+fn main() {
     let mut c8 = chip8::Chip8::new();
 
     if let Some(rom_path) = std::env::args().collect::<Vec<String>>().get(1) {
@@ -46,49 +45,94 @@ async fn main() {
     let mut input = [false; chip8::INPUT_COUNT];
     let mut output = [[false; chip8::DISPLAY_HEIGHT]; chip8::DISPLAY_WIDTH];
 
-    loop {
-        quad::clear_background(BACKGROUND_COLOR);
+    let event_loop = EventLoop::new();
 
-        for key in 0..chip8::INPUT_COUNT {
-            input[key] = quad::is_key_down(INPUT_KEYS[key]);
+    let window = WindowBuilder::new()
+        .with_title("rusty8")
+        .build(&event_loop)
+        .expect("failed to create window");
+
+    let mut pixels = {
+        let window_size = window.inner_size();
+        let surface_texture = SurfaceTexture::new(window_size.width, window_size.height, &window);
+        Pixels::new(
+            chip8::DISPLAY_WIDTH as u32,
+            chip8::DISPLAY_HEIGHT as u32,
+            surface_texture,
+        )
+        .expect("failed to initialise pixels")
+    };
+
+    let mut last_instant = Instant::now();
+
+    event_loop.run(move |event, _, control_flow| match event {
+        Event::MainEventsCleared => {
+            let now = Instant::now();
+            let delta = (now - last_instant).as_secs_f32();
+            last_instant = now;
+
+            for _ in 0..(delta * TIMER_REG_HZ as f32).round() as usize {
+                c8.step_timers();
+            }
+
+            for _ in 0..(delta * CYCLE_HZ as f32).round() as usize {
+                c8.step(&input, &mut output);
+            }
+
+            window.request_redraw();
         }
 
-        let mut play_buzz = false;
-        for _ in 0..(quad::get_frame_time() * TIMER_REG_HZ as f32).round() as usize {
-            play_buzz = play_buzz || c8.step_timers();
+        Event::RedrawRequested(window_id) if window_id == window.id() => {
+            draw(&mut pixels, &output);
         }
 
-        if play_buzz {
-            let params = audio::PlaySoundParams {
-                looped: true,
-                volume: 1.0,
-            };
-            audio::play_sound(buzz, params);
-        } else {
-            audio::stop_sound(buzz);
-        }
+        Event::WindowEvent {
+            ref event,
+            window_id,
+        } if window_id == window.id() => match event {
+            WindowEvent::CloseRequested => {
+                *control_flow = ControlFlow::Exit;
+            }
 
-        for _ in 0..(quad::get_frame_time() * CYCLE_HZ as f32).round() as usize {
-            c8.step(&input, &mut output);
-        }
+            WindowEvent::Resized(size) => {
+                pixels.resize_surface(size.width, size.height).unwrap();
+            }
 
-        draw_output(&output);
+            WindowEvent::KeyboardInput {
+                input:
+                    KeyboardInput {
+                        virtual_keycode: Some(key),
+                        state,
+                        ..
+                    },
+                ..
+            } => {
+                if let Some(key_index) = INPUT_KEYS.iter().position(|x| x == key) {
+                    let down = matches!(state, ElementState::Pressed);
+                    input[key_index] = down;
+                }
+            }
 
-        quad::next_frame().await
-    }
+            _ => {}
+        },
+
+        _ => {}
+    });
 }
 
-fn draw_output(output: &[[bool; chip8::DISPLAY_HEIGHT]; chip8::DISPLAY_WIDTH]) {
-    let pixel_width = quad::screen_width() / chip8::DISPLAY_WIDTH as f32;
-    let pixel_height = quad::screen_height() / chip8::DISPLAY_HEIGHT as f32;
+fn draw(pixels: &mut Pixels, output: &[[bool; chip8::DISPLAY_HEIGHT]; chip8::DISPLAY_WIDTH]) {
+    for (i, pixel) in pixels.frame_mut().chunks_exact_mut(4).enumerate() {
+        let x = i % chip8::DISPLAY_WIDTH;
+        let y = i / chip8::DISPLAY_WIDTH;
 
-    for x in 0..chip8::DISPLAY_WIDTH {
-        for y in 0..chip8::DISPLAY_HEIGHT {
-            if output[x][y] {
-                let draw_x = x as f32 * pixel_width;
-                let draw_y = y as f32 * pixel_height;
-                quad::draw_rectangle(draw_x, draw_y, pixel_width, pixel_height, FOREGROUND_COLOR);
-            }
-        }
+        let rgba = if output[x][y] {
+            FOREGROUND_COLOR
+        } else {
+            BACKGROUND_COLOR
+        };
+
+        pixel.copy_from_slice(&rgba);
     }
+
+    pixels.render().unwrap();
 }

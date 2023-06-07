@@ -4,5 +4,6 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-macroquad = "0.3.25"
+pixels = "0.12.1"
+winit = "0.28.5"
 rand = "0.8.5"

@@ -65,7 +65,7 @@ impl Chip8 {
     pub fn load(&mut self, rom: &[u8]) {
         self.write_sequence(ROM_LOAD_ADDR, rom);
 
-        self.pc = ROM_LOAD_ADDR as u16;
+        self.pc = ROM_LOAD_ADDR;
     }
 
     /*

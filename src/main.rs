@@ -4,6 +4,9 @@ mod chip8;
 
 use std::time::Instant;
 
+use kira::manager::backend::DefaultBackend;
+use kira::manager::AudioManager;
+use kira::sound::static_sound::StaticSoundData;
 use pixels::{Pixels, SurfaceTexture};
 use winit::event::{ElementState, Event, KeyboardInput, VirtualKeyCode, WindowEvent};
 use winit::event_loop::{ControlFlow, EventLoop};
@@ -63,6 +66,11 @@ fn main() {
         .expect("failed to initialise pixels")
     };
 
+    let mut audio_manager = AudioManager::<DefaultBackend>::new(Default::default())
+        .expect("failed to initialise the audio manager");
+    let buzz_sound = StaticSoundData::from_file("buzz.wav", Default::default())
+        .expect("failed to load buzz sound");
+
     let mut last_instant = Instant::now();
 
     event_loop.run(move |event, _, control_flow| match event {
@@ -71,8 +79,13 @@ fn main() {
             let delta = (now - last_instant).as_secs_f32();
             last_instant = now;
 
+            let mut play_sound = false;
             for _ in 0..(delta * TIMER_REG_HZ as f32).round() as usize {
-                c8.step_timers();
+                play_sound = c8.step_timers() || play_sound;
+            }
+
+            if play_sound {
+                audio_manager.play(buzz_sound.clone()).unwrap();
             }
 
             for _ in 0..(delta * CYCLE_HZ as f32).round() as usize {

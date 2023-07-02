@@ -1,8 +1,10 @@
 # rusty8
 
-`rusty8` is a simple Chip-8 emulator implemented in Rust with [Macroquad](https://github.com/not-fl3/macroquad) used for rendering and sound.
+`rusty8` is a simple CHIP-8 emulator implemented in Rust with [pixels](https://github.com/parasyte/pixels) used for rendering and [kira](https://github.com/tesselode/kira) for sound.
 
-The code is designed to be simple and succinct. The full source code is across just 2 files with < 400 lines of code total excluding comments and whitespace.
+The code is designed to be simple and succinct. The full source code is across just 2 files with <500 lines of code total excluding comments and whitespace.
+
+Source file `chip8.rs` contains the emulator implementation while `main.rs` handles rendering, sound, and input/output.
 
 ## Usage
 

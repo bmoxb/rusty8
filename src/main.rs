@@ -2,6 +2,8 @@
 
 mod chip8;
 
+use chip8::Chip8;
+
 use std::time::Instant;
 
 use kira::manager::backend::DefaultBackend;
@@ -38,7 +40,7 @@ const FOREGROUND_COLOR: [u8; 4] = [230, 40, 55, 255];
 const BACKGROUND_COLOR: [u8; 4] = [0, 0, 0, 255];
 
 fn main() {
-    let mut c8 = chip8::Chip8::new();
+    let mut c8 = Chip8::new();
 
     if let Some(rom_path) = std::env::args().collect::<Vec<String>>().get(1) {
         let rom = std::fs::read(rom_path).expect("could not read input ROM file");
@@ -79,18 +81,14 @@ fn main() {
             let delta = (now - last_instant).as_secs_f32();
             last_instant = now;
 
-            let mut play_sound = false;
-            for _ in 0..(delta * TIMER_REG_HZ as f32).round() as usize {
-                play_sound = c8.step_timers() || play_sound;
-            }
-
-            if play_sound {
-                audio_manager.play(buzz_sound.clone()).unwrap();
-            }
-
-            for _ in 0..(delta * CYCLE_HZ as f32).round() as usize {
-                c8.step(&input, &mut output);
-            }
+            update(
+                delta,
+                &mut c8,
+                &mut audio_manager,
+                buzz_sound.clone(),
+                &input,
+                &mut output,
+            );
 
             window.request_redraw();
         }
@@ -120,10 +118,7 @@ fn main() {
                     },
                 ..
             } => {
-                if let Some(key_index) = INPUT_KEYS.iter().position(|x| x == key) {
-                    let down = matches!(state, ElementState::Pressed);
-                    input[key_index] = down;
-                }
+                handle_input(key, state, &mut input);
             }
 
             _ => {}
@@ -131,6 +126,28 @@ fn main() {
 
         _ => {}
     });
+}
+
+fn update(
+    delta: f32,
+    c8: &mut Chip8,
+    audio_manager: &mut AudioManager<DefaultBackend>,
+    buzz_sound: StaticSoundData,
+    input: &[bool; chip8::INPUT_COUNT],
+    output: &mut [[bool; chip8::DISPLAY_HEIGHT]; chip8::DISPLAY_WIDTH],
+) {
+    let mut play_sound = false;
+    for _ in 0..(delta * TIMER_REG_HZ as f32).round() as usize {
+        play_sound = c8.step_timers() || play_sound;
+    }
+
+    if play_sound {
+        audio_manager.play(buzz_sound).unwrap();
+    }
+
+    for _ in 0..(delta * CYCLE_HZ as f32).round() as usize {
+        c8.step(input, output);
+    }
 }
 
 fn draw(pixels: &mut Pixels, output: &[[bool; chip8::DISPLAY_HEIGHT]; chip8::DISPLAY_WIDTH]) {
@@ -148,4 +165,15 @@ fn draw(pixels: &mut Pixels, output: &[[bool; chip8::DISPLAY_HEIGHT]; chip8::DIS
     }
 
     pixels.render().unwrap();
+}
+
+fn handle_input(
+    key: &VirtualKeyCode,
+    state: &ElementState,
+    input: &mut [bool; chip8::INPUT_COUNT],
+) {
+    if let Some(key_index) = INPUT_KEYS.iter().position(|x| x == key) {
+        let down = matches!(state, ElementState::Pressed);
+        input[key_index] = down;
+    }
 }
